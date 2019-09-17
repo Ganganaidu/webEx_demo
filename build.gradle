@@ -20,12 +20,6 @@ buildscript {
         classpath "com.android.tools.build:gradle:$gradleVersion"
         classpath 'com.github.triplet.gradle:play-publisher:1.1.5'
         classpath 'org.greenrobot:greendao-gradle-plugin:3.2.2'
-
-//        api 'io.jsonwebtoken:jjwt-api:0.10.7'
-//        runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.10.7'
-//        runtimeOnly('io.jsonwebtoken:jjwt-orgjson:0.10.7') {
-//            exclude group: 'org.json', module: 'json' //provided by Android natively
-//        }
     }
 }
 
