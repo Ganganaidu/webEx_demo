@@ -28,7 +28,7 @@ package com.android.webex.spinsai.actions.events;
  */
 
 public class OnErrorEvent extends ErrorEvent {
-    public OnErrorEvent(String e) {
-        super(e);
+    public OnErrorEvent(String e, int status) {
+        super(e, status);
     }
 }

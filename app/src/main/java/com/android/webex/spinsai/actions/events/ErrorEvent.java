@@ -4,17 +4,23 @@ import org.greenrobot.eventbus.EventBus;
 
 public class ErrorEvent {
 
-    String message;
+    private String message;
+    private int status;
 
-    public ErrorEvent(String message) {
+    ErrorEvent(String message, int status) {
         this.message = message;
+        this.status = status;
     }
 
     public String getMessage() {
         return message;
     }
 
-    public static void postEvent(Object event) {
+    public int getStatus() {
+        return status;
+    }
+
+    private static void postEvent(Object event) {
         EventBus.getDefault().post(event);
     }
 

@@ -241,11 +241,18 @@ public class CallFragment extends BaseFragment {
                 localView.setVisibility(View.GONE);
                 break;
         }
-        switchLoudSpeaker.setChecked(agent.getSpeakerPhoneOn());
-        switchSendingVideo.setChecked(agent.isSendingVideo());
-        switchSendingAudio.setChecked(agent.isSendingAudio());
-        switchReceiveVideo.setChecked(agent.isReceivingVideo());
-        switchReceiveAudio.setChecked(agent.isReceivingAudio());
+
+        try {
+
+            switchLoudSpeaker.setChecked(agent.getSpeakerPhoneOn());
+            switchSendingVideo.setChecked(agent.isSendingVideo());
+            switchSendingAudio.setChecked(agent.isSendingAudio());
+            switchReceiveVideo.setChecked(agent.isReceivingVideo());
+            switchReceiveAudio.setChecked(agent.isReceivingAudio());
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         updateScreenShareView();
     }

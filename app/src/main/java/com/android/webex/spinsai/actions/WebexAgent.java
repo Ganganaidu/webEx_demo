@@ -57,11 +57,16 @@ import com.ciscowebex.androidsdk.space.Space;
 import java.io.File;
 import java.security.Key;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import javax.crypto.spec.SecretKeySpec;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.reactivex.Observable;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.CompositeDisposable;
+import io.reactivex.schedulers.Schedulers;
 
 
 /**
@@ -88,6 +93,8 @@ public class WebexAgent {
     private CameraCap cameraCap = CameraCap.FRONT;
 
     private User user;
+    private CompositeDisposable disposable = new CompositeDisposable();
+    private Result result;
 
     public static WebexAgent getInstance() {
         if (instance == null) {
@@ -145,22 +152,25 @@ public class WebexAgent {
     public void register() {
         phone = webex.phone();
         phone.register(result -> {
+            this.result = result;
             if (result.isSuccessful()) {
-                findSpace(result);
+                findSpace();
             } else {
                 new LoginEvent(result).post();
             }
         });
     }
 
-    private void findSpace(Result result) {
+    private void findSpace() {
         webex.spaces().list(null, 100, null, null, fetchRooms -> {
             if (fetchRooms.isSuccessful()) {
                 List<Space> spaces = fetchRooms.getData();
                 if (spaces == null || spaces.size() == 0) {
                     if (user.getProvider() == User.PATIENT) {
-                        new OnErrorEvent("No Room available to join.").post();
+                        keepFindingSpace();
+                        new OnErrorEvent("Waiting for provider to join ...", 1).post();
                     } else {
+                        clearDisposable();
                         createSpace(user.getCsnId());
                     }
                     return;
@@ -169,14 +179,23 @@ public class WebexAgent {
                     final String title = space.getTitle();
                     if ((title != null) && (title.equalsIgnoreCase(user.getCsnId()))) {
                         AppPrefs.getInstance().saveRoomId(space.getId());
+                        clearDisposable();
                         new LoginEvent(result).post();
                         break;
                     }
                 }
             } else {
+                clearDisposable();
                 new LoginEvent(result).post();
             }
         });
+    }
+
+    private void keepFindingSpace() {
+        disposable.add(Observable.interval(5, 100, TimeUnit.SECONDS)
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribeOn(Schedulers.io())
+                .subscribe(aLong -> findSpace()));
     }
 
     private void createSpace(String csnId) {
@@ -188,7 +207,7 @@ public class WebexAgent {
                     AppPrefs.getInstance().saveRoomId(spaceId);
                     addPatient(spaceId);
                 } else {
-                    new OnErrorEvent("User not available to create.").post();
+                    new OnErrorEvent("User not available to create.", 2).post();
                 }
             } else {
                 new LoginEvent(result).post();
@@ -208,7 +227,7 @@ public class WebexAgent {
                 if (person != null) {
                     addUserToSpace(spaceId, person.getId());
                 } else {
-                    new OnErrorEvent("User not available to connect.").post();
+                    new OnErrorEvent("User not available to connect.", 2).post();
                 }
             } else {
                 new LoginEvent(result).post();
@@ -306,7 +325,7 @@ public class WebexAgent {
                 return MediaOption.audioOnly();
             else
                 return MediaOption.audioVideoSharing(new Pair<>(localView, remoteView), screenSharing);
-        }catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
             return MediaOption.audioOnly();
         }
@@ -333,7 +352,7 @@ public class WebexAgent {
                 activeCall.setObserver(callObserver);
                 activeCall.answer(getMediaOption(localView, remoteView, screenShare), r -> new AnswerEvent(r).post());
             }
-        }catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -428,4 +447,9 @@ public class WebexAgent {
         }
         return false;
     }
+
+    public void clearDisposable() {
+        disposable.clear();
+    }
+
 }

@@ -155,20 +155,26 @@ public class LoginActivity extends BaseActivity {
             toast("AppID logged in.");
             startLauncher();
         } else {
+            postLogData("error: " + event.getError().toString());
             toast(event.getError().toString());
         }
+
     }
 
     @SuppressWarnings("unused")
     @Subscribe
     public void onErrorEvent(OnErrorEvent event) {
-        dismissBusyIndicator();
-        toast(event.getMessage());
-        finish();
+        if (event.getStatus() == 1) {
+            updateDialogMessage(event.getMessage());
+        } else if (event.getStatus() == 2) {
+            dismissBusyIndicator();
+            toast(event.getMessage());
+            postLogData("error: " + event.getMessage());
+            finish();
+        }
     }
 
     private void startLauncher() {
-        Log.d(TAG, "startLauncher: " + AppPrefs.getInstance().getRoomId());
         startActivity(new Intent(this, LauncherActivity.class));
         finish();
     }
@@ -176,6 +182,7 @@ public class LoginActivity extends BaseActivity {
     private void initCall(User user) {
         String id = user.getProvider() == User.PATIENT ? user.getPatId() : user.getProvId();
         String jwt = WebexAgent.getInstance().generateJwt(user.getCsnId(), id);
+        postLogData("jwt token: " + jwt);
         Log.d(TAG, "generateJwt: " + jwt);
 
         if (jwt != null) {

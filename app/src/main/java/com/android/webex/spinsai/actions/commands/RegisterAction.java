@@ -32,9 +32,9 @@ import com.ciscowebex.androidsdk.auth.Authenticator;
  */
 
 public class RegisterAction implements IAction {
-    Authenticator authenticator;
+    private Authenticator authenticator;
 
-    public RegisterAction(Authenticator auth) {
+    RegisterAction(Authenticator auth) {
         this.authenticator = auth;
     }
 
