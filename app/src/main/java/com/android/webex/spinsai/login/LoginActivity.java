@@ -29,31 +29,25 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
-import android.util.Base64;
 import android.util.Log;
 import android.widget.TextView;
 
 import com.android.webex.spinsai.R;
+import com.android.webex.spinsai.actions.WebexAgent;
 import com.android.webex.spinsai.actions.commands.AppIdLoginAction;
 import com.android.webex.spinsai.actions.events.LoginEvent;
 import com.android.webex.spinsai.actions.events.OnErrorEvent;
 import com.android.webex.spinsai.launcher.LauncherActivity;
+import com.android.webex.spinsai.models.User;
 import com.android.webex.spinsai.ui.BaseActivity;
 import com.android.webex.spinsai.utils.AppPrefs;
-import com.android.webex.spinsai.utils.Constants;
 import com.nabinbhandari.android.permissions.PermissionHandler;
 import com.nabinbhandari.android.permissions.Permissions;
 
 import org.greenrobot.eventbus.Subscribe;
 
-import java.security.Key;
-
-import javax.crypto.spec.SecretKeySpec;
-
 import butterknife.BindView;
 import butterknife.ButterKnife;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 
 public class LoginActivity extends BaseActivity {
 
@@ -61,6 +55,8 @@ public class LoginActivity extends BaseActivity {
 
     @BindView(R.id.textView2)
     TextView textView;
+
+    private User user;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -70,6 +66,7 @@ public class LoginActivity extends BaseActivity {
 
         Intent intent = getIntent();
         Uri data = intent.getData();
+
         if (data != null) {
             parseUrl(data);
         } else {
@@ -77,8 +74,9 @@ public class LoginActivity extends BaseActivity {
             if (bundle != null) {
                 String csnId = bundle.getString("ROOM_NAME");
                 String patientId = bundle.getString("PATIENT_ID");
+                user = new User(csnId, patientId);
 
-                init(csnId, patientId);
+                init(user);
 
             } else {
                 displayDefaultMessage();
@@ -88,7 +86,7 @@ public class LoginActivity extends BaseActivity {
 
     private void parseUrl(Uri referrerUri) {
         try {
-            String hostName = referrerUri.getHost();
+            String providerType = referrerUri.getHost();
             String scheme = referrerUri.getScheme();
 
             if (scheme != null && scheme.equalsIgnoreCase("spinscitelehealth")) {
@@ -99,9 +97,9 @@ public class LoginActivity extends BaseActivity {
                 String patId = referrerUri.getQueryParameter("patId");
                 String patName = referrerUri.getQueryParameter("patName");
 
-                if (hostName != null && hostName.equalsIgnoreCase("patient")) {
-                    init(csnId, patId);
-                }
+                user = new User(providerType, csnId, patId, provName, patName, provId);
+                init(user);
+
             } else {
                 displayDefaultMessage();
             }
@@ -115,9 +113,8 @@ public class LoginActivity extends BaseActivity {
         textView.setText(getString(R.string.please_open_this));
     }
 
-    private void init(String csnId, String patId) {
-        Constants.csnId = csnId;
-
+    private void init(User user) {
+        WebexAgent.getInstance().setUser(user);
         String[] permissions = {Manifest.permission.CAMERA,
                 Manifest.permission.WRITE_EXTERNAL_STORAGE,
                 Manifest.permission.RECORD_AUDIO};
@@ -125,8 +122,12 @@ public class LoginActivity extends BaseActivity {
                 "We need them to connect webEx"/*rationale*/, null/*options*/, new PermissionHandler() {
             @Override
             public void onGranted() {
+                if (user.getCsnId() == null || user.getCsnId().isEmpty()) {
+                    displayDefaultMessage();
+                    return;
+                }
                 showBusyIndicator("SpinSci", "Connecting to UC Davis Health ...");
-                generateJwt(csnId, patId);
+                initCall(user);
             }
         });
     }
@@ -172,22 +173,13 @@ public class LoginActivity extends BaseActivity {
         finish();
     }
 
-    private void generateJwt(String csnId, String patId) {
+    private void initCall(User user) {
+        String id = user.getProvider() == User.PATIENT ? user.getPatId() : user.getProvId();
+        String jwt = WebexAgent.getInstance().generateJwt(user.getCsnId(), id);
+        Log.d(TAG, "generateJwt: " + jwt);
 
-        SignatureAlgorithm signatureAlgorithm = SignatureAlgorithm.HS256;
-        byte[] secretBytes = Base64.decode(Constants.guestSecret, Base64.URL_SAFE);
-        Key signingKey = new SecretKeySpec(secretBytes, signatureAlgorithm.getJcaName());
-
-        String jws = Jwts.builder()
-                .setIssuer(Constants.guestId)
-                .setSubject(csnId + '/' + patId)
-                .signWith(signingKey)
-                .compact();
-
-        Log.d(TAG, "generateJwt: " + jws);
-
-        if (jws != null) {
-            new AppIdLoginAction(jws).execute();
+        if (jwt != null) {
+            new AppIdLoginAction(jwt).execute();
         }
     }
 

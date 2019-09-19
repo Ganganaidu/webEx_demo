@@ -30,14 +30,18 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
+import android.view.View;
 import android.widget.Switch;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.android.webex.spinsai.R;
+import com.android.webex.spinsai.actions.WebexAgent;
 import com.android.webex.spinsai.actions.commands.RequirePermissionAction;
 import com.android.webex.spinsai.actions.events.OnCallMembershipEvent;
 import com.android.webex.spinsai.actions.events.OnMediaChangeEvent;
 import com.android.webex.spinsai.launcher.fragments.CallFragment;
+import com.android.webex.spinsai.models.User;
 import com.android.webex.spinsai.ui.BaseActivity;
 import com.android.webex.spinsai.ui.BaseFragment;
 import com.android.webex.spinsai.utils.AppPrefs;
@@ -49,13 +53,11 @@ import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.List;
 
-import butterknife.BindView;
-
 
 public class LauncherActivity extends BaseActivity {
 
-    @BindView(R.id.toolbar)
-    Toolbar myToolbar;
+    TextView toolbar_title;
+    TextView toolbar_desc;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -64,6 +66,13 @@ public class LauncherActivity extends BaseActivity {
 
         CallFragment fragment = CallFragment.newInstance(AppPrefs.getInstance().getRoomId());
         replace(fragment, R.id.launcher);
+
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        toolbar_title = findViewById(R.id.toolbar_title);
+        toolbar_desc = findViewById(R.id.toolbar_desc);
+        setSupportActionBar(toolbar);
+
+        setUpToolBarTitle();
     }
 
     @Override
@@ -83,6 +92,31 @@ public class LauncherActivity extends BaseActivity {
 //            //manager.popBackStackImmediate();
 //            finish();
 //        }
+    }
+
+    private void setUpToolBarTitle() {
+        if (getSupportActionBar() != null) {
+            User user = WebexAgent.getInstance().getUser();
+            String patientName = null;
+            String providerName = null;
+            String title;
+
+            if (user.getPatName() != null && !user.getPatName().isEmpty()) {
+                patientName = "Patient: " + user.getPatName();
+                toolbar_desc.setText(patientName);
+            }
+
+            if (user.getProvName() != null && !user.getProvName().isEmpty()) {
+                providerName = "Provider: " + user.getProvName();
+                toolbar_title.setText(providerName);
+            }
+
+            if (patientName == null && providerName == null) {
+                title = WebexAgent.getInstance().getUser().getCsnId();
+                toolbar_desc.setVisibility(View.GONE);
+                toolbar_title.setText(title);
+            }
+        }
     }
 
     public void replace(BaseFragment fragment) {

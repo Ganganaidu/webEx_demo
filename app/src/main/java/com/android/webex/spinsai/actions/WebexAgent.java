@@ -24,9 +24,11 @@
 package com.android.webex.spinsai.actions;
 
 import android.net.Uri;
+import android.util.Base64;
 import android.util.Pair;
 import android.view.View;
 
+import com.android.webex.spinsai.SpinsciHealthApp;
 import com.android.webex.spinsai.actions.events.AnswerEvent;
 import com.android.webex.spinsai.actions.events.DialEvent;
 import com.android.webex.spinsai.actions.events.HangupEvent;
@@ -35,15 +37,17 @@ import com.android.webex.spinsai.actions.events.OnErrorEvent;
 import com.android.webex.spinsai.actions.events.OnIncomingCallEvent;
 import com.android.webex.spinsai.actions.events.RejectEvent;
 import com.android.webex.spinsai.actions.events.WebexAgentEvent;
+import com.android.webex.spinsai.models.User;
 import com.android.webex.spinsai.utils.AppPrefs;
 import com.android.webex.spinsai.utils.Constants;
 import com.ciscowebex.androidsdk.CompletionHandler;
 import com.ciscowebex.androidsdk.Result;
 import com.ciscowebex.androidsdk.Webex;
-import com.ciscowebex.androidsdk.WebexError;
+import com.ciscowebex.androidsdk.auth.JWTAuthenticator;
 import com.ciscowebex.androidsdk.membership.MembershipClient;
 import com.ciscowebex.androidsdk.message.MessageClient;
 import com.ciscowebex.androidsdk.message.RemoteFile;
+import com.ciscowebex.androidsdk.people.Person;
 import com.ciscowebex.androidsdk.phone.Call;
 import com.ciscowebex.androidsdk.phone.CallObserver;
 import com.ciscowebex.androidsdk.phone.MediaOption;
@@ -51,7 +55,13 @@ import com.ciscowebex.androidsdk.phone.Phone;
 import com.ciscowebex.androidsdk.space.Space;
 
 import java.io.File;
+import java.security.Key;
 import java.util.List;
+
+import javax.crypto.spec.SecretKeySpec;
+
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 
 
 /**
@@ -65,6 +75,7 @@ public class WebexAgent {
     public enum CameraCap {FRONT, BACK, CLOSE}
 
     private Webex webex;
+    private Webex patinetWebEx;
     private Phone phone;
     private Call activeCall;
     private Call incomingCall;
@@ -75,6 +86,8 @@ public class WebexAgent {
     private final CallObserver callObserver = new EventPubCallObserver();
     private CallCap callCap = CallCap.AUDIO_VIDEO;
     private CameraCap cameraCap = CameraCap.FRONT;
+
+    private User user;
 
     public static WebexAgent getInstance() {
         if (instance == null) {
@@ -90,6 +103,14 @@ public class WebexAgent {
     public void setWebex(Webex webex) {
         this.webex = webex;
         //this.webex.setLogLevel(Webex.LogLevel.ALL);
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 
     public Phone getPhone() {
@@ -137,12 +158,16 @@ public class WebexAgent {
             if (fetchRooms.isSuccessful()) {
                 List<Space> spaces = fetchRooms.getData();
                 if (spaces == null || spaces.size() == 0) {
-                    new OnErrorEvent("No Room available to join").post();
+                    if (user.getProvider() == User.PATIENT) {
+                        new OnErrorEvent("No Room available to join.").post();
+                    } else {
+                        createSpace(user.getCsnId());
+                    }
                     return;
                 }
                 for (Space space : spaces) {
                     final String title = space.getTitle();
-                    if ((title != null) && (title.equalsIgnoreCase(Constants.csnId))) {
+                    if ((title != null) && (title.equalsIgnoreCase(user.getCsnId()))) {
                         AppPrefs.getInstance().saveRoomId(space.getId());
                         new LoginEvent(result).post();
                         break;
@@ -154,38 +179,68 @@ public class WebexAgent {
         });
     }
 
-    private void createSpace(){
-        webex.spaces().create("Hello World", null, result -> {
+    private void createSpace(String csnId) {
+        webex.spaces().create(csnId, null, result -> {
             if (result.isSuccessful()) {
                 Space space = result.getData();
-                String spaceId = space.getId();
-            }
-            else {
-                WebexError error = result.getError();
+                if (space != null) {
+                    String spaceId = space.getId();
+                    AppPrefs.getInstance().saveRoomId(spaceId);
+                    addPatient(spaceId);
+                } else {
+                    new OnErrorEvent("User not available to create.").post();
+                }
+            } else {
+                new LoginEvent(result).post();
             }
         });
     }
 
-    private void addPatient(String csnId, String patId){
-//        //JwtToken with Pid;
-//        SignatureAlgorithm signatureAlgorithm = SignatureAlgorithm.HS256;
-//        byte[] secretBytes = Base64.decode(Constants.guestSecret, Base64.URL_SAFE);
-//        Key signingKey = new SecretKeySpec(secretBytes, signatureAlgorithm.getJcaName());
-//
-//        String jws = Jwts.builder()
-//                .setIssuer(Constants.guestId)
-//                .setSubject(csnId + '/' + patId)
-//                .signWith(signingKey)
-//                .compact();
-//
-//        Webex patWebex = new Webex();
-//        patWebex.people().getMe(result -> {
-//            if(result.isSuccessful()){
-//                Person person = result.getData();
-//                person.getId();
+    private void addPatient(String spaceId) {
+        String jwt = WebexAgent.getInstance().generateJwt(user.getCsnId(), user.getPatId());
+
+        JWTAuthenticator jwtAuthenticator = new JWTAuthenticator();
+        Webex patWebex = new Webex(SpinsciHealthApp.getApplication(), jwtAuthenticator);
+        jwtAuthenticator.authorize(jwt);
+        patWebex.people().getMe(result -> {
+            if (result.isSuccessful()) {
+                Person person = result.getData();
+                if (person != null) {
+                    addUserToSpace(spaceId, person.getId());
+                } else {
+                    new OnErrorEvent("User not available to connect.").post();
+                }
+            } else {
+                new LoginEvent(result).post();
+            }
+        });
+    }
+
+    private void addUserToSpace(String spaceId, String personToken) {
+        webex.memberships().create(spaceId, null, personToken, true, result -> {
+            new LoginEvent(result).post();
+//            if (result.isSuccessful()) {
+//                Membership membership = result.getData();
+//            } else {
+//                WebexError error = result.getError();
 //            }
-//
-//        });
+        });
+    }
+
+    /**
+     * create jwt token based on csn id and patient/provider id
+     */
+    public String generateJwt(String csnId, String id) {
+
+        SignatureAlgorithm signatureAlgorithm = SignatureAlgorithm.HS256;
+        byte[] secretBytes = Base64.decode(Constants.guestSecret, Base64.URL_SAFE);
+        Key signingKey = new SecretKeySpec(secretBytes, signatureAlgorithm.getJcaName());
+
+        return Jwts.builder()
+                .setIssuer(Constants.guestId)
+                .setSubject(csnId + '/' + id)
+                .signWith(signingKey)
+                .compact();
     }
 
     private void setupIncomingCallListener() {
@@ -226,26 +281,35 @@ public class WebexAgent {
     }
 
     public void dial(String callee, View localView, View remoteView, View screenSharing) {
-        isDialing = true;
-        phone.dial(callee, getMediaOption(localView, remoteView, screenSharing), (Result<Call> result) -> {
-            if (result.isSuccessful()) {
-                activeCall = result.getData();
-                if (!isDialing || activeCall == null) {
-                    hangup();
-                } else {
-                    if (activeCall != null) activeCall.setObserver(callObserver);
+        try {
+            isDialing = true;
+            phone.dial(callee, getMediaOption(localView, remoteView, screenSharing), (Result<Call> result) -> {
+                if (result.isSuccessful()) {
+                    activeCall = result.getData();
+                    if (!isDialing || activeCall == null) {
+                        hangup();
+                    } else {
+                        if (activeCall != null) activeCall.setObserver(callObserver);
+                    }
                 }
-            }
-            isDialing = false;
-            new DialEvent(result).post();
-        });
+                isDialing = false;
+                new DialEvent(result).post();
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private MediaOption getMediaOption(View localView, View remoteView, View screenSharing) {
-        if (callCap.equals(CallCap.AUDIO_ONLY))
+        try {
+            if (callCap.equals(CallCap.AUDIO_ONLY))
+                return MediaOption.audioOnly();
+            else
+                return MediaOption.audioVideoSharing(new Pair<>(localView, remoteView), screenSharing);
+        }catch (Exception e){
+            e.printStackTrace();
             return MediaOption.audioOnly();
-        else
-            return MediaOption.audioVideoSharing(new Pair<>(localView, remoteView), screenSharing);
+        }
     }
 
     public void reject() {
@@ -262,11 +326,15 @@ public class WebexAgent {
     }
 
     public void answer(View localView, View remoteView, View screenShare) {
-        if (isCallIncoming()) {
-            activeCall = incomingCall;
-            incomingCall = null;
-            activeCall.setObserver(callObserver);
-            activeCall.answer(getMediaOption(localView, remoteView, screenShare), r -> new AnswerEvent(r).post());
+        try {
+            if (isCallIncoming()) {
+                activeCall = incomingCall;
+                incomingCall = null;
+                activeCall.setObserver(callObserver);
+                activeCall.answer(getMediaOption(localView, remoteView, screenShare), r -> new AnswerEvent(r).post());
+            }
+        }catch (Exception e){
+            e.printStackTrace();
         }
     }
 
