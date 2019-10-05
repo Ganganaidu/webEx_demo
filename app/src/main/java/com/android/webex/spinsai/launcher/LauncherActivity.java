@@ -23,7 +23,6 @@
 
 package com.android.webex.spinsai.launcher;
 
-import android.app.ActivityManager;
 import android.app.Fragment;
 import android.app.NotificationManager;
 import android.content.Context;
@@ -31,9 +30,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
 import android.view.View;
-import android.widget.Switch;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.android.webex.spinsai.R;
 import com.android.webex.spinsai.actions.WebexAgent;
@@ -51,25 +48,28 @@ import com.github.benoitdion.ln.Ln;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
-import java.util.List;
+import butterknife.BindView;
+import butterknife.ButterKnife;
 
 
 public class LauncherActivity extends BaseActivity {
 
+    @BindView(R.id.toolbar_title)
     TextView toolbar_title;
+
+    @BindView(R.id.toolbar_desc)
     TextView toolbar_desc;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_launcher);
+        ButterKnife.bind(this);
 
         CallFragment fragment = CallFragment.newInstance(AppPrefs.getInstance().getRoomId());
         replace(fragment, R.id.launcher);
 
         Toolbar toolbar = findViewById(R.id.toolbar);
-        toolbar_title = findViewById(R.id.toolbar_title);
-        toolbar_desc = findViewById(R.id.toolbar_desc);
         setSupportActionBar(toolbar);
 
         setUpToolBarTitle();
@@ -77,21 +77,7 @@ public class LauncherActivity extends BaseActivity {
 
     @Override
     public void onBackPressed() {
-        goBackStack();
-    }
-
-    public void goBackStack() {
         finish();
-//        FragmentManager manager = getFragmentManager();
-//        BaseFragment fm = (BaseFragment) getFragment();
-//        fm.onBackPressed();
-//        if (manager.getBackStackEntryCount() == 1) {
-//            manager.popBackStackImmediate();
-//            super.onBackPressed();
-//        } else {
-//            //manager.popBackStackImmediate();
-//            finish();
-//        }
     }
 
     private void setUpToolBarTitle() {
@@ -145,9 +131,6 @@ public class LauncherActivity extends BaseActivity {
             Ln.d("Activity SendingSharingEvent: " + ((CallObserver.SendingSharingEvent) event.callEvent).isSending());
             if (!((CallObserver.SendingSharingEvent) event.callEvent).isSending()) {
                 cancelNotification();
-                moveToFront();
-                updateSharingSwitch(false);
-                Toast.makeText(this, "Stop to share content", Toast.LENGTH_SHORT).show();
             }
         }
     }
@@ -161,26 +144,8 @@ public class LauncherActivity extends BaseActivity {
         }
     }
 
-    protected void moveToFront() {
-        final ActivityManager activityManager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        final List<ActivityManager.RunningTaskInfo> recentTasks = activityManager.getRunningTasks(Integer.MAX_VALUE);
-
-        for (int i = 0; i < recentTasks.size(); i++) {
-            // bring to front
-            if (recentTasks.get(i).baseActivity.toShortString().indexOf("com.android.webex.spinsai") > -1) {
-                activityManager.moveTaskToFront(recentTasks.get(i).id, ActivityManager.MOVE_TASK_WITH_HOME);
-            }
-        }
-    }
-
     private void cancelNotification() {
         NotificationManager notifyManager = (NotificationManager) this.getSystemService(Context.NOTIFICATION_SERVICE);
         notifyManager.cancel(1);
-    }
-
-    private void updateSharingSwitch(boolean flag) {
-        Switch shareSwitch = (Switch) findViewById(R.id.switchShareContent);
-        if (shareSwitch != null && shareSwitch.isChecked())
-            shareSwitch.setChecked(flag);
     }
 }

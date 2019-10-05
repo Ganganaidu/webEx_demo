@@ -34,9 +34,6 @@ import com.android.webex.spinsai.actions.events.DialEvent;
 import com.android.webex.spinsai.actions.events.HangupEvent;
 import com.android.webex.spinsai.actions.events.LoginEvent;
 import com.android.webex.spinsai.actions.events.OnErrorEvent;
-import com.android.webex.spinsai.actions.events.OnIncomingCallEvent;
-import com.android.webex.spinsai.actions.events.RejectEvent;
-import com.android.webex.spinsai.actions.events.WebexAgentEvent;
 import com.android.webex.spinsai.models.User;
 import com.android.webex.spinsai.utils.AppPrefs;
 import com.android.webex.spinsai.utils.Constants;
@@ -44,7 +41,6 @@ import com.ciscowebex.androidsdk.CompletionHandler;
 import com.ciscowebex.androidsdk.Result;
 import com.ciscowebex.androidsdk.Webex;
 import com.ciscowebex.androidsdk.auth.JWTAuthenticator;
-import com.ciscowebex.androidsdk.membership.MembershipClient;
 import com.ciscowebex.androidsdk.message.MessageClient;
 import com.ciscowebex.androidsdk.message.RemoteFile;
 import com.ciscowebex.androidsdk.people.Person;
@@ -80,7 +76,6 @@ public class WebexAgent {
     public enum CameraCap {FRONT, BACK, CLOSE}
 
     private Webex webex;
-    private Webex patinetWebEx;
     private Phone phone;
     private Call activeCall;
     private Call incomingCall;
@@ -262,18 +257,6 @@ public class WebexAgent {
                 .compact();
     }
 
-    private void setupIncomingCallListener() {
-        phone.setIncomingCallListener(call -> {
-            incomingCall = call;
-            incomingCall.setObserver(callObserver);
-            WebexAgentEvent.postEvent(new OnIncomingCallEvent(call));
-        });
-    }
-
-    public void getMembership(String roomId, CompletionHandler handler) {
-        MembershipClient client = webex.memberships();
-        client.list(roomId, null, null, 0, handler);
-    }
 
     public boolean isCallIncoming() {
         return incomingCall != null && !incomingCall.getStatus().equals(Call.CallStatus.DISCONNECTED);
@@ -329,11 +312,6 @@ public class WebexAgent {
             e.printStackTrace();
             return MediaOption.audioOnly();
         }
-    }
-
-    public void reject() {
-        incomingCall.reject(r -> new RejectEvent(r).post());
-        incomingCall = null;
     }
 
     public void hangup() {

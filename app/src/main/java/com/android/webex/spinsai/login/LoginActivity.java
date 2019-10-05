@@ -40,7 +40,6 @@ import com.android.webex.spinsai.actions.events.OnErrorEvent;
 import com.android.webex.spinsai.launcher.LauncherActivity;
 import com.android.webex.spinsai.models.User;
 import com.android.webex.spinsai.ui.BaseActivity;
-import com.android.webex.spinsai.utils.AppPrefs;
 import com.nabinbhandari.android.permissions.PermissionHandler;
 import com.nabinbhandari.android.permissions.Permissions;
 
@@ -115,6 +114,7 @@ public class LoginActivity extends BaseActivity {
 
     private void init(User user) {
         WebexAgent.getInstance().setUser(user);
+
         String[] permissions = {Manifest.permission.CAMERA,
                 Manifest.permission.WRITE_EXTERNAL_STORAGE,
                 Manifest.permission.RECORD_AUDIO};

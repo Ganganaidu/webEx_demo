@@ -33,13 +33,11 @@ import android.content.res.Configuration;
 import android.os.Bundle;
 import android.support.constraint.ConstraintLayout;
 import android.support.v4.app.NotificationCompat;
-import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.GridLayout;
 import android.widget.ImageView;
 import android.widget.RadioButton;
 import android.widget.Switch;
@@ -48,7 +46,6 @@ import android.widget.Toast;
 
 import com.android.webex.spinsai.R;
 import com.android.webex.spinsai.actions.WebexAgent;
-import com.android.webex.spinsai.actions.commands.AddCallHistoryAction;
 import com.android.webex.spinsai.actions.commands.RequirePermissionAction;
 import com.android.webex.spinsai.actions.commands.ToggleSpeakerAction;
 import com.android.webex.spinsai.actions.events.AnswerEvent;
@@ -66,12 +63,10 @@ import com.android.webex.spinsai.launcher.LauncherActivity;
 import com.android.webex.spinsai.service.AwakeService;
 import com.android.webex.spinsai.ui.BaseFragment;
 import com.android.webex.spinsai.ui.FullScreenSwitcher;
-import com.android.webex.spinsai.ui.ParticipantsAdapter;
 import com.android.webex.spinsai.utils.AppPrefs;
 import com.ciscowebex.androidsdk.people.Person;
 import com.ciscowebex.androidsdk.phone.AuxStream;
 import com.ciscowebex.androidsdk.phone.CallMembership;
-import com.ciscowebex.androidsdk.phone.CallObserver;
 import com.ciscowebex.androidsdk.phone.MediaRenderView;
 import com.ciscowebex.androidsdk.phone.MultiStreamObserver;
 import com.github.benoitdion.ln.Ln;
@@ -81,7 +76,6 @@ import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.HashMap;
-import java.util.List;
 
 import butterknife.BindView;
 import butterknife.OnCheckedChanged;
@@ -101,7 +95,7 @@ public class CallFragment extends BaseFragment {
     private WebexAgent agent;
     private FullScreenSwitcher screenSwitcher;
     private boolean isConnected = false;
-    private HashMap<View, AuxStreamViewHolder> mAuxStreamViewMap = new HashMap<>();
+
     private HashMap<String, Person> mIdPersonMap = new HashMap<>();
 
     @BindView(R.id.localView)
@@ -110,29 +104,14 @@ public class CallFragment extends BaseFragment {
     @BindView(R.id.remoteView)
     View remoteView;
 
-    @BindView(R.id.viewRemoteAvatar)
-    ImageView remoteAvatar;
-
     @BindView(R.id.screenShare)
     View screenShare;
 
     @BindView(R.id.view_call_control)
     View viewCallControl;
 
-    @BindView(R.id.view_aux_videos_container)
-    View viewAuxVideosContainer;
-
-    @BindView(R.id.view_aux_videos)
-    GridLayout viewAuxVideos;
-
-    @BindView(R.id.view_participants)
-    RecyclerView viewParticipants;
-
     @BindView(R.id.buttonHangup)
     Button buttonHangup;
-
-    @BindView(R.id.buttonDTMF)
-    Button buttonDTMF;
 
     @BindView(R.id.switchLoudSpeaker)
     Switch switchLoudSpeaker;
@@ -161,13 +140,7 @@ public class CallFragment extends BaseFragment {
     @BindView(R.id.switchShareContent)
     Switch switchShareContent;
 
-    @BindView(R.id.keypad)
-    View keypad;
-
-    private ParticipantsAdapter participantsAdapter;
-
     // Required empty public constructor
-
     class AuxStreamViewHolder {
         View item;
         MediaRenderView mediaRenderView;
@@ -205,10 +178,7 @@ public class CallFragment extends BaseFragment {
         agent = WebexAgent.getInstance();
         screenSwitcher = new FullScreenSwitcher(getActivity(), layout, remoteView);
         updateScreenShareView();
-        if (participantsAdapter == null) {
-            participantsAdapter = new ParticipantsAdapter(null);
-            viewParticipants.setAdapter(participantsAdapter);
-        }
+
         if (!isConnected) {
             setViewAndChildrenEnabled(layout, false);
             ((SurfaceView) localView).setZOrderMediaOverlay(true);
@@ -272,7 +242,6 @@ public class CallFragment extends BaseFragment {
 
     private void setButtonsEnable(boolean enable) {
         buttonHangup.setEnabled(enable);
-        buttonDTMF.setEnabled(false);
     }
 
     @OnClick(R.id.buttonHangup)
@@ -302,28 +271,8 @@ public class CallFragment extends BaseFragment {
         alert11.show();
     }
 
-    @OnClick(R.id.buttonDTMF)
-    public void onDTMF() {
-        if (isConnected)
-            keypad.setVisibility(keypad.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
-    }
-
-    @OnClick({R.id.digit_0, R.id.digit_1, R.id.digit_2,
-            R.id.digit_3, R.id.digit_4, R.id.digit_5,
-            R.id.digit_6, R.id.digit_7, R.id.digit_8,
-            R.id.digit_9, R.id.digit_hash,
-            R.id.digit_asterisk})
-    public void sendDTMF(View view) {
-        if (isConnected) {
-            String keyPressed = (String) view.getTag();
-            agent.getActiveCall().sendDTMF(keyPressed, result -> {
-            });
-        }
-    }
-
     @OnClick(R.id.remoteView)
     public void onRemoteViewClicked() {
-        if (remoteAvatar.getVisibility() == View.VISIBLE) return;
         screenSwitcher.toggleFullScreen();
         updateFullScreenLayout();
     }
@@ -385,29 +334,6 @@ public class CallFragment extends BaseFragment {
         agent.setFrontCamera();
     }
 
-    @OnClick({R.id.tab_callcontrol, R.id.tab_aux_video, R.id.tab_participants})
-    public void onTabClick(View view) {
-        switch (view.getId()) {
-            case R.id.tab_callcontrol:
-                viewCallControl.setVisibility(View.VISIBLE);
-                viewAuxVideosContainer.setVisibility(View.GONE);
-                viewParticipants.setVisibility(View.GONE);
-                break;
-            case R.id.tab_aux_video:
-                viewCallControl.setVisibility(View.GONE);
-                viewAuxVideosContainer.setVisibility(View.VISIBLE);
-                viewParticipants.setVisibility(View.GONE);
-                break;
-            case R.id.tab_participants:
-                viewCallControl.setVisibility(View.GONE);
-                viewAuxVideosContainer.setVisibility(View.GONE);
-                viewParticipants.setVisibility(View.VISIBLE);
-                break;
-            default:
-                break;
-        }
-    }
-
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
@@ -433,7 +359,6 @@ public class CallFragment extends BaseFragment {
         }
 
         agent.dial(callee, localView, remoteView, screenShare);
-        new AddCallHistoryAction(callee, "out").execute();
         setButtonsEnable(true);
     }
 
@@ -444,8 +369,6 @@ public class CallFragment extends BaseFragment {
 
     private void feedback() {
         getActivity().finish();
-//        BaseFragment fm = new CallFeedbackFragment();
-//        ((LauncherActivity) getActivity()).replace(fm);
     }
 
     @SuppressWarnings("unused")
@@ -482,7 +405,7 @@ public class CallFragment extends BaseFragment {
         if (agent.getDefaultCamera().equals(WebexAgent.CameraCap.CLOSE))
             agent.sendVideo(false);
         setupWidgetStates();
-        updateParticipants();
+
         event.call.setMultiStreamObserver(new MultiStreamObserver() {
             @Override
             public void onAuxStreamChanged(AuxStreamChangedEvent event) {
@@ -494,7 +417,7 @@ public class CallFragment extends BaseFragment {
                 Ln.d("onAuxStreamAvailable");
                 View auxStreamView = LayoutInflater.from(getActivity()).inflate(R.layout.remote_video_view, null);
                 AuxStreamViewHolder auxStreamViewHolder = new AuxStreamViewHolder(auxStreamView);
-                mAuxStreamViewMap.put(auxStreamViewHolder.mediaRenderView, auxStreamViewHolder);
+                //mAuxStreamViewMap.put(auxStreamViewHolder.mediaRenderView, auxStreamViewHolder);
                 return auxStreamViewHolder.mediaRenderView;
             }
 
@@ -506,62 +429,12 @@ public class CallFragment extends BaseFragment {
         });
     }
 
-    private void updateParticipants() {
-        if (agent == null || agent.getActiveCall() == null) return;
-        List<CallMembership> callMemberships = agent.getActiveCall().getMemberships();
-        if (callMemberships == null) return;
-        Ln.d("updateParticipants: " + callMemberships.size());
-        for (CallMembership membership : callMemberships) {
-            String personId = membership.getPersonId();
-            if (membership.getState() != CallMembership.State.JOINED || personId == null || personId.isEmpty() || membership.getEmail() == null || membership.getEmail().isEmpty())
-                continue;
-            participantsAdapter.addItem(new ParticipantsAdapter.CallMembershipEntity(personId, membership.getEmail(), "", membership.isSendingAudio(), membership.isSendingVideo()));
-            agent.getWebex().people().get(personId, r -> {
-                if (r == null || !r.isSuccessful() || r.getData() == null) return;
-                mIdPersonMap.put(personId, r.getData());
-                updatePersonInfoForParticipants(personId, r.getData());
-            });
-        }
-    }
-
-    private void updatePersonInfoForParticipants(String personId, Person person) {
-        participantsAdapter.updateName(personId, person.getDisplayName());
-        participantsAdapter.updateAvatar(personId, person.getAvatar());
-    }
-
-    private void updatePersonInfoForActiveSpeaker(String personId, Person person) {
-        if (participantsAdapter.getActiveSpeaker() == null || personId == null || person == null || !participantsAdapter.getActiveSpeaker().equals(personId))
-            return;
-        String avatar = person.getAvatar();
-        if (avatar == null || avatar.isEmpty()) {
-            remoteAvatar.setImageResource(R.drawable.google_contacts_android);
-        } else {
-            Picasso.with(getActivity()).cancelRequest(remoteAvatar);
-            Picasso.with(getActivity()).load(avatar).fit().into(remoteAvatar);
-        }
-    }
-
-    private void updatePersonInfoForAuxStream(String personId, Person person, AuxStreamViewHolder auxStreamViewHolder) {
-        if (personId == null || personId.isEmpty() || person == null || auxStreamViewHolder == null)
-            return;
-        auxStreamViewHolder.textView.setText(person.getDisplayName());
-        String avatar = person.getAvatar();
-        if (avatar == null || avatar.isEmpty()) {
-            auxStreamViewHolder.viewAvatar.setImageResource(R.drawable.google_contacts_android);
-        } else {
-            Picasso.with(getActivity()).cancelRequest(auxStreamViewHolder.viewAvatar);
-            Picasso.with(getActivity()).load(avatar).fit().into(auxStreamViewHolder.viewAvatar);
-        }
-    }
-
     @SuppressWarnings("unused")
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onEventMainThread(OnDisconnectEvent event) {
         isConnected = false;
-        keypad.setVisibility(View.GONE);
         stopAwakeService();
         if (agent.getActiveCall() == null || event.getCall().equals(agent.getActiveCall())) {
-            mAuxStreamViewMap.clear();
             mIdPersonMap.clear();
             feedback();
         }
@@ -579,38 +452,6 @@ public class CallFragment extends BaseFragment {
                 sendNotification();
                 backToHome();
             }
-        } else if (event.callEvent instanceof CallObserver.ActiveSpeakerChangedEvent) {
-            CallMembership membership = ((CallObserver.ActiveSpeakerChangedEvent) event.callEvent).to();
-            Ln.d("ActiveSpeakerChangedEvent: " + membership);
-            if (membership != null && membership.getPersonId() != null && !membership.getPersonId().isEmpty()) {
-                String personId = membership.getPersonId();
-                participantsAdapter.updateActiveSpeaker(personId);
-                if (membership.isSendingVideo()) {
-                    remoteAvatar.setVisibility(View.GONE);
-                } else {
-                    remoteAvatar.setVisibility(View.VISIBLE);
-                    Person person = mIdPersonMap.get(personId);
-                    if (person == null) {
-                        remoteAvatar.setImageResource(R.drawable.google_contacts_android);
-                        agent.getWebex().people().get(personId, r -> {
-                            if (!r.isSuccessful() || r.getData() == null) return;
-                            mIdPersonMap.put(personId, r.getData());
-                            updatePersonInfoForActiveSpeaker(personId, r.getData());
-                        });
-                    } else {
-                        String avatar = person.getAvatar();
-                        if (avatar == null || avatar.isEmpty()) {
-                            remoteAvatar.setImageResource(R.drawable.google_contacts_android);
-                        } else {
-                            Picasso.with(getActivity()).cancelRequest(remoteAvatar);
-                            Picasso.with(getActivity()).load(avatar).fit().into(remoteAvatar);
-                        }
-                    }
-                }
-            } else {
-                remoteAvatar.setVisibility(View.VISIBLE);
-                remoteAvatar.setImageResource(android.R.color.darker_gray);
-            }
         }
     }
 
@@ -618,92 +459,7 @@ public class CallFragment extends BaseFragment {
     @SuppressWarnings("unused")
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onEventMainThread(OnAuxStreamEvent event) {
-        Ln.d("OnAuxStreamEvent: " + event.callEvent.getAuxStream());
-        AuxStream auxStream = event.callEvent.getAuxStream();
-        if (event.callEvent instanceof MultiStreamObserver.AuxStreamOpenedEvent) {
-            MultiStreamObserver.AuxStreamOpenedEvent openEvent = (MultiStreamObserver.AuxStreamOpenedEvent) event.callEvent;
-            if (openEvent.isSuccessful()) {
-                Ln.d("AuxStreamOpenedEvent successful");
-                viewAuxVideos.addView(mAuxStreamViewMap.get(openEvent.getRenderView()).item);
-            } else {
-                Ln.d("AuxStreamOpenedEvent failed: " + openEvent.getError());
-                mAuxStreamViewMap.remove(openEvent.getRenderView());
-            }
-        } else if (event.callEvent instanceof MultiStreamObserver.AuxStreamClosedEvent) {
-            MultiStreamObserver.AuxStreamClosedEvent closeEvent = (MultiStreamObserver.AuxStreamClosedEvent) event.callEvent;
-            if (closeEvent.isSuccessful()) {
-                Ln.d("AuxStreamClosedEvent successful");
-                AuxStreamViewHolder auxStreamViewHolder = mAuxStreamViewMap.get(closeEvent.getRenderView());
-                mAuxStreamViewMap.remove(closeEvent.getRenderView());
-                viewAuxVideos.removeView(auxStreamViewHolder.item);
-            } else {
-                Ln.d("AuxStreamClosedEvent failed: " + closeEvent.getError());
-            }
-        } else if (event.callEvent instanceof MultiStreamObserver.AuxStreamSendingVideoEvent) {
-            Ln.d("AuxStreamSendingVideoEvent: " + auxStream.isSendingVideo());
-            AuxStreamViewHolder auxStreamViewHolder = mAuxStreamViewMap.get(auxStream.getRenderView());
-            if (auxStreamViewHolder == null) return;
-            if (auxStream.isSendingVideo()) {
-                auxStreamViewHolder.viewAvatar.setVisibility(View.GONE);
-            } else {
-                CallMembership membership = auxStream.getPerson();
-                if (membership == null || membership.getPersonId() == null || membership.getPersonId().isEmpty())
-                    return;
-                String personId = membership.getPersonId();
-                auxStreamViewHolder.viewAvatar.setVisibility(View.VISIBLE);
-                Person person = mIdPersonMap.get(personId);
-                if (person == null) {
-                    auxStreamViewHolder.viewAvatar.setImageResource(R.drawable.google_contacts_android);
-                    agent.getWebex().people().get(personId, r -> {
-                        if (!r.isSuccessful() || r.getData() == null) return;
-                        mIdPersonMap.put(personId, r.getData());
-                        updatePersonInfoForAuxStream(personId, r.getData(), auxStreamViewHolder);
-                    });
-                } else {
-                    String avatar = person.getAvatar();
-                    if (avatar == null || avatar.isEmpty()) {
-                        auxStreamViewHolder.viewAvatar.setImageResource(R.drawable.google_contacts_android);
-                    } else {
-                        Picasso.with(getActivity()).cancelRequest(auxStreamViewHolder.viewAvatar);
-                        Picasso.with(getActivity()).load(avatar).fit().into(auxStreamViewHolder.viewAvatar);
-                    }
-                }
-            }
-        } else if (event.callEvent instanceof MultiStreamObserver.AuxStreamPersonChangedEvent) {
-            Ln.d("AuxStreamPersonChangedEvent: " + auxStream.getPerson());
-            AuxStreamViewHolder auxStreamViewHolder = mAuxStreamViewMap.get(auxStream.getRenderView());
-            if (auxStream.getPerson() == null) {
-                mAuxStreamViewMap.remove(auxStream.getRenderView());
-                viewAuxVideos.removeView(auxStreamViewHolder.item);
-            } else {
-                CallMembership membership = auxStream.getPerson();
-                if (membership == null || membership.getPersonId() == null || membership.getPersonId().isEmpty())
-                    return;
-                String personId = membership.getPersonId();
-                participantsAdapter.updateSendingAudioStatus(personId, membership.isSendingAudio());
-                participantsAdapter.updateSendingVideoStatus(personId, membership.isSendingVideo());
-                Person person = mIdPersonMap.get(personId);
-                auxStreamViewHolder.viewAvatar.setVisibility(membership.isSendingVideo() ? View.GONE : View.VISIBLE);
-                if (person == null) {
-                    auxStreamViewHolder.textView.setText(membership.getEmail());
-                    auxStreamViewHolder.viewAvatar.setImageResource(R.drawable.google_contacts_android);
-                    agent.getWebex().people().get(personId, r -> {
-                        if (!r.isSuccessful() || r.getData() == null) return;
-                        mIdPersonMap.put(personId, r.getData());
-                        updatePersonInfoForAuxStream(personId, r.getData(), auxStreamViewHolder);
-                    });
-                } else {
-                    auxStreamViewHolder.textView.setText(person.getDisplayName());
-                    String avatar = person.getAvatar();
-                    if (avatar == null || avatar.isEmpty()) {
-                        auxStreamViewHolder.viewAvatar.setImageResource(R.drawable.google_contacts_android);
-                    } else {
-                        Picasso.with(getActivity()).cancelRequest(auxStreamViewHolder.viewAvatar);
-                        Picasso.with(getActivity()).load(avatar).fit().into(auxStreamViewHolder.viewAvatar);
-                    }
-                }
-            }
-        }
+
     }
 
     @SuppressWarnings("unused")
@@ -711,52 +467,6 @@ public class CallFragment extends BaseFragment {
     public void onEventMainThread(OnCallMembershipEvent event) {
         CallMembership membership = event.callEvent.getCallMembership();
         Ln.d("OnCallMembershipEvent: " + membership);
-        if (membership == null || membership.getPersonId() == null || membership.getPersonId().isEmpty())
-            return;
-        String personId = membership.getPersonId();
-        if (event.callEvent instanceof CallObserver.MembershipJoinedEvent) {
-            Ln.d("MembershipJoinedEvent: ");
-            if (membership.getState() != CallMembership.State.JOINED || personId == null || personId.isEmpty() || membership.getEmail() == null || membership.getEmail().isEmpty())
-                return;
-            participantsAdapter.addItem(new ParticipantsAdapter.CallMembershipEntity(personId, membership.getEmail(), "", membership.isSendingAudio(), membership.isSendingVideo()));
-            agent.getWebex().people().get(personId, r -> {
-                if (r == null || !r.isSuccessful() || r.getData() == null) return;
-                updatePersonInfoForParticipants(personId, r.getData());
-            });
-        } else if (event.callEvent instanceof CallObserver.MembershipLeftEvent) {
-            Ln.d("MembershipLeftEvent: ");
-            participantsAdapter.removeItem(personId);
-        } else if (event.callEvent instanceof CallObserver.MembershipSendingAudioEvent) {
-            Ln.d("MembershipSendingAudioEvent: " + membership.isSendingAudio());
-            participantsAdapter.updateSendingAudioStatus(personId, membership.isSendingAudio());
-        } else if (event.callEvent instanceof CallObserver.MembershipSendingVideoEvent) {
-            Ln.d("MembershipSendingVideoEvent: " + membership.isSendingVideo());
-            participantsAdapter.updateSendingVideoStatus(personId, membership.isSendingVideo());
-            if (participantsAdapter.getActiveSpeaker() != null && participantsAdapter.getActiveSpeaker().equals(personId)) {
-                if (membership.isSendingVideo()) {
-                    remoteAvatar.setVisibility(View.GONE);
-                } else {
-                    remoteAvatar.setVisibility(View.VISIBLE);
-                    Person person = mIdPersonMap.get(personId);
-                    if (person == null) {
-                        remoteAvatar.setImageResource(R.drawable.google_contacts_android);
-                        agent.getWebex().people().get(personId, r -> {
-                            if (!r.isSuccessful() || r.getData() == null) return;
-                            mIdPersonMap.put(personId, r.getData());
-                            updatePersonInfoForActiveSpeaker(personId, r.getData());
-                        });
-                    } else {
-                        String avatar = person.getAvatar();
-                        if (avatar == null || avatar.isEmpty()) {
-                            remoteAvatar.setImageResource(R.drawable.google_contacts_android);
-                        } else {
-                            Picasso.with(getActivity()).cancelRequest(remoteAvatar);
-                            Picasso.with(getActivity()).load(avatar).fit().into(remoteAvatar);
-                        }
-                    }
-                }
-            }
-        }
     }
 
     @SuppressWarnings("unused")

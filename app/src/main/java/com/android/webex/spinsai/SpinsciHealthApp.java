@@ -25,11 +25,6 @@ package com.android.webex.spinsai;
 
 import android.app.Application;
 
-import com.android.webex.spinsai.models.DaoMaster;
-import com.android.webex.spinsai.models.DaoSession;
-
-import org.greenrobot.greendao.database.Database;
-
 /**
  * Created on 18/09/2017.
  */
@@ -37,22 +32,14 @@ import org.greenrobot.greendao.database.Database;
 public class SpinsciHealthApp extends Application {
 
     private static SpinsciHealthApp application;
-    private static DaoSession daoSession;
 
     @Override
     public void onCreate() {
         super.onCreate();
         application = this;
-        DaoMaster.DevOpenHelper helper = new DaoMaster.DevOpenHelper(this, "call-history-db");
-        Database db = helper.getWritableDb();
-        daoSession = new DaoMaster(db).newSession();
     }
 
     public static SpinsciHealthApp getApplication() {
         return application;
-    }
-
-    public static DaoSession getDaoSession() {
-        return daoSession;
     }
 }
