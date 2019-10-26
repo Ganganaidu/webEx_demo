@@ -14,5 +14,13 @@
     <string name="front">Front</string>
     <string name="back">Back</string>
     <string name="max_bandwidth">Max Bandwidth</string>
+    <string name="camera">Camera</string>
+    <string name="front_camera">Front camera</string>
+    <string name="back_camera">Back camera</string>
+    <string name="hangup">Hangup</string>
+    <string name="screen_shot">Screen shot</string>
+    <string name="enter_name_to_save">Enter name to save</string>
+    <string name="submit">Submit</string>
+    <string name="save">save</string>
 
 </resources>

@@ -3,58 +3,62 @@
 <android.support.constraint.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/call_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@android:color/white">
 
-    <com.ciscowebex.androidsdk.phone.MediaRenderView
-        android:id="@+id/localView"
-        android:layout_width="60dp"
-        android:layout_height="80dp"
-        android:layout_marginEnd="8dp"
-        android:layout_marginTop="8dp"
-        android:background="@drawable/border"
-        android:elevation="8dp"
-        app:layout_constraintRight_toRightOf="@+id/remoteView"
-        app:layout_constraintTop_toTopOf="@+id/remoteView" />
-
-    <com.ciscowebex.androidsdk.phone.MediaRenderView
-        android:id="@+id/screenShare"
-        android:layout_width="60dp"
-        android:layout_height="80dp"
-        android:layout_marginEnd="8dp"
-        android:layout_marginTop="8dp"
-        android:background="@drawable/border"
-        android:elevation="8dp"
-        android:visibility="invisible"
-        app:layout_constraintRight_toRightOf="@+id/remoteView"
-        app:layout_constraintTop_toBottomOf="@+id/localView" />
-
-    <com.ciscowebex.androidsdk.phone.MediaRenderView
-        android:id="@+id/remoteView"
-        android:layout_width="0dp"
-        android:layout_height="300dp"
-        android:layout_margin="8dp"
-        android:elevation="1dp"
-        app:layout_constraintLeft_toLeftOf="parent"
+    <android.support.constraint.ConstraintLayout
         app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-
-    <ScrollView
-        android:id="@+id/view_call_control"
+        app:layout_constraintTop_toTopOf="parent"
+        android:id="@+id/rootMediaLayout"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_margin="8dp"
-        android:visibility="visible"
-        app:layout_constraintLeft_toLeftOf="@id/remoteView"
-        app:layout_constraintRight_toRightOf="@id/remoteView"
-        app:layout_constraintTop_toBottomOf="@+id/remoteView">
+        android:layout_height="wrap_content">
+
+        <com.ciscowebex.androidsdk.phone.MediaRenderView
+            android:id="@+id/localView"
+            android:layout_width="100dp"
+            android:layout_height="120dp"
+            android:layout_marginEnd="8dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/border"
+            android:elevation="8dp"
+            app:layout_constraintRight_toRightOf="@+id/remoteView"
+            app:layout_constraintTop_toTopOf="@+id/remoteView" />
+
+        <com.ciscowebex.androidsdk.phone.MediaRenderView
+            android:id="@+id/screenShare"
+            android:layout_width="100dp"
+            android:layout_height="120dp"
+            android:layout_marginEnd="8dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/border"
+            android:elevation="8dp"
+            android:visibility="invisible"
+            app:layout_constraintRight_toRightOf="@+id/remoteView"
+            app:layout_constraintTop_toBottomOf="@+id/localView" />
+
+        <com.ciscowebex.androidsdk.phone.MediaRenderView
+            android:id="@+id/remoteView"
+            android:layout_width="0dp"
+            android:layout_height="350dp"
+            android:layout_margin="8dp"
+            android:elevation="1dp"
+            app:layout_constraintLeft_toLeftOf="parent"
+            app:layout_constraintRight_toRightOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+    </android.support.constraint.ConstraintLayout>
 
         <android.support.constraint.ConstraintLayout
-            android:layout_width="match_parent"
+            app:layout_constraintLeft_toLeftOf="@id/rootMediaLayout"
+            app:layout_constraintRight_toRightOf="@id/rootMediaLayout"
+            app:layout_constraintTop_toBottomOf="@+id/rootMediaLayout"
             android:layout_height="wrap_content"
+            android:id="@+id/switchLayout"
+            android:layout_width="0dp"
+            android:layout_margin="8dp"
             android:paddingStart="8dp"
             android:paddingEnd="16dp">
 
@@ -62,7 +66,7 @@
                 android:id="@+id/labelCamera"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Camera"
+                android:text="@string/camera"
                 app:layout_constraintLeft_toLeftOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
             <RadioGroup
@@ -79,148 +83,65 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:checked="false"
-                    android:text="Front camera"
+                    android:text="@string/front_camera"
                     app:layout_constraintLeft_toLeftOf="parent" />
                 <RadioButton
                     android:id="@+id/radioBackCam"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Back camera"
+                    android:text="@string/back_camera"
                     app:layout_constraintRight_toRightOf="parent" />
             </RadioGroup>
 
-            <TextView
-                android:visibility="invisible"
-                android:id="@+id/textSendVideo"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Sending Video"
-                android:layout_marginTop="8dp"
-                app:layout_constraintLeft_toLeftOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/radioGroup" />
-            <Switch
-                android:visibility="invisible"
-                android:id="@+id/switchSendVideo"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:checked="true"
-                app:layout_constraintRight_toRightOf="parent"
-                app:layout_constraintTop_toTopOf="@+id/textSendVideo" />
-
-
-            <TextView
-                android:visibility="invisible"
-                android:id="@+id/textSendAudio"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="Sending Audio"
-                app:layout_constraintLeft_toLeftOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/textSendVideo" />
-            <Switch
-                android:visibility="invisible"
-                android:id="@+id/switchSendAudio"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:checked="true"
-                app:layout_constraintRight_toRightOf="parent"
-                app:layout_constraintTop_toTopOf="@+id/textSendAudio" />
-
-            <TextView
-                android:visibility="invisible"
-                android:id="@+id/textReceiveVideo"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="Receiving Video"
-                app:layout_constraintLeft_toLeftOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/textSendAudio" />
-            <Switch
-                android:visibility="invisible"
-                android:id="@+id/switchReceiveVideo"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:checked="true"
-                app:layout_constraintRight_toRightOf="parent"
-                app:layout_constraintTop_toTopOf="@+id/textReceiveVideo" />
-
-            <TextView
-                android:visibility="invisible"
-                android:id="@+id/textReceiveAudio"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="Receiving Audio"
-                app:layout_constraintLeft_toLeftOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/textReceiveVideo" />
-            <Switch
-                android:visibility="invisible"
-                android:id="@+id/switchReceiveAudio"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:checked="true"
-                app:layout_constraintRight_toRightOf="parent"
-                app:layout_constraintTop_toTopOf="@+id/textReceiveAudio" />
-
-
-            <TextView
-                android:visibility="invisible"
-                android:id="@+id/TextShareContent"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="Sharing Content"
-                app:layout_constraintLeft_toLeftOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/textReceiveAudio" />
-            <Switch
-                android:visibility="invisible"
-                android:id="@+id/switchShareContent"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:checked="false"
-                app:layout_constraintRight_toRightOf="parent"
-                app:layout_constraintTop_toTopOf="@+id/TextShareContent" />
-
-
-            <TextView
-                android:visibility="invisible"
-                android:id="@+id/TextLoudSpeaker"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="Loud speaker"
-                app:layout_constraintLeft_toLeftOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/TextShareContent" />
-            <Switch
-                android:visibility="invisible"
-                android:id="@+id/switchLoudSpeaker"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:checked="true"
-                app:layout_constraintRight_toRightOf="parent"
-                app:layout_constraintTop_toTopOf="@+id/TextLoudSpeaker" />
-
-            <LinearLayout
-                android:id="@+id/linearLayout"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:layout_marginTop="30dp"
-                app:layout_constraintLeft_toLeftOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/radioGroup"
-                android:orientation="horizontal">
-                <Button
-                    android:id="@+id/buttonHangup"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@android:color/holo_blue_light"
-                    android:text="Hangup"
-                    android:layout_marginEnd="16dp"
-                    android:textColor="@android:color/white" />
-            </LinearLayout>
-
         </android.support.constraint.ConstraintLayout>
-    </ScrollView>
+
+    <LinearLayout
+        android:id="@+id/linearLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="10dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/buttonHangup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="16dp"
+            android:background="@android:color/holo_blue_light"
+            android:text="@string/hangup"
+            android:textColor="@android:color/white" />
+
+        <Button
+            android:id="@+id/takeScreenShot"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:layout_weight="1"
+            android:background="@android:color/holo_blue_light"
+            android:text="@string/screen_shot"
+            android:textColor="@android:color/white" />
+
+    </LinearLayout>
+
+    <ImageView
+        app:layout_constraintTop_toBottomOf="@+id/switchLayout"
+        android:id="@+id/imageView2"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:layout_marginStart="16dp"
+        app:layout_constraintStart_toStartOf="parent"
+        tools:srcCompat="@drawable/swirl_logo" />
+
+    <ImageView
+        app:layout_constraintTop_toBottomOf="@+id/switchLayout"
+        android:id="@+id/imageView3"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:layout_marginStart="120dp"
+        app:layout_constraintStart_toStartOf="parent"
+        tools:srcCompat="@drawable/swirl_logo" />
 
 </android.support.constraint.ConstraintLayout>

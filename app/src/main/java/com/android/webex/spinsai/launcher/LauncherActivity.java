@@ -1,26 +1,3 @@
-/*
- * Copyright 2016-2017 Cisco Systems Inc
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- */
-
 package com.android.webex.spinsai.launcher;
 
 import android.app.Fragment;
@@ -29,8 +6,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.android.webex.spinsai.R;
 import com.android.webex.spinsai.actions.WebexAgent;
@@ -39,6 +19,8 @@ import com.android.webex.spinsai.actions.events.OnCallMembershipEvent;
 import com.android.webex.spinsai.actions.events.OnMediaChangeEvent;
 import com.android.webex.spinsai.launcher.fragments.CallFragment;
 import com.android.webex.spinsai.models.User;
+import com.android.webex.spinsai.screentshot.BitmapHelper;
+import com.android.webex.spinsai.screentshot.PathListDisplayActivity;
 import com.android.webex.spinsai.ui.BaseActivity;
 import com.android.webex.spinsai.ui.BaseFragment;
 import com.android.webex.spinsai.utils.AppPrefs;
@@ -47,10 +29,10 @@ import com.github.benoitdion.ln.Ln;
 
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
+import org.jetbrains.annotations.NotNull;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
-
 
 public class LauncherActivity extends BaseActivity {
 
@@ -59,6 +41,9 @@ public class LauncherActivity extends BaseActivity {
 
     @BindView(R.id.toolbar_desc)
     TextView toolbar_desc;
+
+    @BindView(R.id.toolbar)
+    Toolbar toolbar;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -69,10 +54,27 @@ public class LauncherActivity extends BaseActivity {
         CallFragment fragment = CallFragment.newInstance(AppPrefs.getInstance().getRoomId());
         replace(fragment, R.id.launcher);
 
-        Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-
         setUpToolBarTitle();
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_path, menu);
+        //MenuItem item = menu.findItem(R.id.action_path_list);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle item selection
+        if (item.getItemId() == R.id.action_path_list && BitmapHelper.getInstance().getFilePathList().size() > 0) {
+            startActivity(new Intent(this, PathListDisplayActivity.class));
+            return true;
+        } else {
+            Toast.makeText(this, "No saved images to display", Toast.LENGTH_SHORT).show();
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     @Override
@@ -119,7 +121,7 @@ public class LauncherActivity extends BaseActivity {
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NotNull String[] permissions, @NotNull int[] grantResults) {
         RequirePermissionAction.PermissionsRequired(requestCode, grantResults);
     }
 
@@ -146,6 +148,14 @@ public class LauncherActivity extends BaseActivity {
 
     private void cancelNotification() {
         NotificationManager notifyManager = (NotificationManager) this.getSystemService(Context.NOTIFICATION_SERVICE);
-        notifyManager.cancel(1);
+        if (notifyManager != null) {
+            notifyManager.cancel(1);
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        BitmapHelper.getInstance().clear();
     }
 }

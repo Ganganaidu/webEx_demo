@@ -1,26 +1,3 @@
-/*
- * Copyright 2016-2017 Cisco Systems Inc
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- */
-
 package com.android.webex.spinsai.launcher.fragments;
 
 
@@ -30,9 +7,11 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.support.constraint.ConstraintLayout;
 import android.support.v4.app.NotificationCompat;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.SurfaceView;
 import android.view.View;
@@ -40,14 +19,12 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.RadioButton;
-import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.android.webex.spinsai.R;
 import com.android.webex.spinsai.actions.WebexAgent;
 import com.android.webex.spinsai.actions.commands.RequirePermissionAction;
-import com.android.webex.spinsai.actions.commands.ToggleSpeakerAction;
 import com.android.webex.spinsai.actions.events.AnswerEvent;
 import com.android.webex.spinsai.actions.events.DialEvent;
 import com.android.webex.spinsai.actions.events.HangupEvent;
@@ -60,25 +37,22 @@ import com.android.webex.spinsai.actions.events.OnRingingEvent;
 import com.android.webex.spinsai.actions.events.PermissionAcquiredEvent;
 import com.android.webex.spinsai.actions.events.WebexAgentEvent;
 import com.android.webex.spinsai.launcher.LauncherActivity;
+import com.android.webex.spinsai.screentshot.BitmapHelper;
+import com.android.webex.spinsai.screentshot.SSDisplayActivity;
+import com.android.webex.spinsai.screentshot.ScreenShot;
 import com.android.webex.spinsai.service.AwakeService;
 import com.android.webex.spinsai.ui.BaseFragment;
 import com.android.webex.spinsai.ui.FullScreenSwitcher;
 import com.android.webex.spinsai.utils.AppPrefs;
-import com.ciscowebex.androidsdk.people.Person;
-import com.ciscowebex.androidsdk.phone.AuxStream;
 import com.ciscowebex.androidsdk.phone.CallMembership;
 import com.ciscowebex.androidsdk.phone.MediaRenderView;
 import com.ciscowebex.androidsdk.phone.MultiStreamObserver;
 import com.github.benoitdion.ln.Ln;
-import com.squareup.picasso.Picasso;
 
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
-import java.util.HashMap;
-
 import butterknife.BindView;
-import butterknife.OnCheckedChanged;
 import butterknife.OnClick;
 
 import static com.ciscowebex.androidsdk.phone.CallObserver.RemoteSendingSharingEvent;
@@ -87,7 +61,9 @@ import static com.ciscowebex.androidsdk.phone.CallObserver.SendingSharingEvent;
 /**
  * A simple {@link BaseFragment} subclass.
  */
-public class CallFragment extends BaseFragment {
+public class CallFragment extends BaseFragment implements ScreenShot.PixelShotListener {
+
+    private static final String TAG = "CallFragment";
 
     protected static final int MEDIA_PROJECTION_REQUEST = 2;
     private static final String CALLEE = "callee";
@@ -95,8 +71,6 @@ public class CallFragment extends BaseFragment {
     private WebexAgent agent;
     private FullScreenSwitcher screenSwitcher;
     private boolean isConnected = false;
-
-    private HashMap<String, Person> mIdPersonMap = new HashMap<>();
 
     @BindView(R.id.localView)
     View localView;
@@ -107,26 +81,8 @@ public class CallFragment extends BaseFragment {
     @BindView(R.id.screenShare)
     View screenShare;
 
-    @BindView(R.id.view_call_control)
-    View viewCallControl;
-
     @BindView(R.id.buttonHangup)
     Button buttonHangup;
-
-    @BindView(R.id.switchLoudSpeaker)
-    Switch switchLoudSpeaker;
-
-    @BindView(R.id.switchSendVideo)
-    Switch switchSendingVideo;
-
-    @BindView(R.id.switchSendAudio)
-    Switch switchSendingAudio;
-
-    @BindView(R.id.switchReceiveVideo)
-    Switch switchReceiveVideo;
-
-    @BindView(R.id.switchReceiveAudio)
-    Switch switchReceiveAudio;
 
     @BindView(R.id.radioFrontCam)
     RadioButton radioFrontCam;
@@ -137,8 +93,20 @@ public class CallFragment extends BaseFragment {
     @BindView(R.id.call_layout)
     ConstraintLayout layout;
 
-    @BindView(R.id.switchShareContent)
-    Switch switchShareContent;
+    @BindView(R.id.takeScreenShot)
+    Button takeScreenShot;
+
+    @BindView(R.id.imageView2)
+    ImageView imageView2;
+
+    @BindView(R.id.imageView3)
+    ImageView imageView3;
+
+    @BindView(R.id.rootMediaLayout)
+    ConstraintLayout rootMediaLayout;
+
+    private int screenShotCount = 1;
+    private String mainViewScreenShotPath = "";
 
     // Required empty public constructor
     class AuxStreamViewHolder {
@@ -211,19 +179,6 @@ public class CallFragment extends BaseFragment {
                 localView.setVisibility(View.GONE);
                 break;
         }
-
-        try {
-
-            switchLoudSpeaker.setChecked(agent.getSpeakerPhoneOn());
-            switchSendingVideo.setChecked(agent.isSendingVideo());
-            switchSendingAudio.setChecked(agent.isSendingAudio());
-            switchReceiveVideo.setChecked(agent.isReceivingVideo());
-            switchReceiveAudio.setChecked(agent.isReceivingAudio());
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
         updateScreenShareView();
     }
 
@@ -248,6 +203,36 @@ public class CallFragment extends BaseFragment {
     public void onHangup() {
         displayAlert();
     }
+
+    @OnClick(R.id.takeScreenShot)
+    public void onScreenShotClicked() {
+        screenShotCount = 1;
+        ScreenShot.of(remoteView).setResultListener(this).save(false);
+        ScreenShot.of(localView).setResultListener(this).save(true);
+    }
+
+    @Override
+    public void onPixelShotSuccess(String path) {
+        Log.d(TAG, "file path" + path);
+    }
+
+    @Override
+    public void onReturnBitmap(Bitmap bitmap) {
+        BitmapHelper.getInstance().setRemoteBView(bitmap);
+    }
+
+    @Override
+    public void onReturnBitmapLocal(Bitmap bitmap) {
+        BitmapHelper.getInstance().setLocalBView(bitmap);
+        //navigate to new view
+        startActivity(new Intent(getActivity(), SSDisplayActivity.class));
+    }
+
+    @Override
+    public void onPixelShotFailed() {
+
+    }
+
 
     private void displayAlert() {
         AlertDialog.Builder alertDialog = new AlertDialog.Builder(getActivity());
@@ -281,47 +266,6 @@ public class CallFragment extends BaseFragment {
         updateScreenShareView();
         ((SurfaceView) remoteView).setZOrderMediaOverlay(screenSwitcher.isFullScreen());
         localView.setVisibility(screenSwitcher.isFullScreen() ? View.GONE : View.VISIBLE);
-    }
-
-    @OnCheckedChanged({R.id.switchSendVideo, R.id.switchSendAudio,
-            R.id.switchReceiveVideo, R.id.switchReceiveAudio, R.id.switchShareContent})
-    public void onSwitchCallAbility(Switch s) {
-        switch (s.getId()) {
-            case R.id.switchSendVideo:
-                if (radioBackCam.isChecked())
-                    agent.setBackCamera();
-                else {
-                    radioFrontCam.setChecked(true);
-                    agent.setFrontCamera();
-                }
-                agent.sendVideo(s.isChecked());
-                break;
-            case R.id.switchSendAudio:
-                agent.sendAudio(s.isChecked());
-                break;
-            case R.id.switchReceiveVideo:
-                agent.receiveVideo(s.isChecked());
-                break;
-            case R.id.switchReceiveAudio:
-                agent.receiveAudio(s.isChecked());
-                break;
-            case R.id.switchShareContent:
-                if (s.isChecked())
-                    agent.getActiveCall().startSharing(r -> {
-                        Ln.d("startSharing result: " + r);
-                    });
-                else
-                    agent.getActiveCall().stopSharing(r -> {
-                        Ln.d("stopSharing result: " + r);
-                    });
-                break;
-
-        }
-    }
-
-    @OnCheckedChanged(R.id.switchLoudSpeaker)
-    public void onSwitchLoudSpeakerChanged(Switch s) {
-        new ToggleSpeakerAction(getActivity(), s.isChecked()).execute();
     }
 
     @OnClick(R.id.radioBackCam)
@@ -434,10 +378,6 @@ public class CallFragment extends BaseFragment {
     public void onEventMainThread(OnDisconnectEvent event) {
         isConnected = false;
         stopAwakeService();
-        if (agent.getActiveCall() == null || event.getCall().equals(agent.getActiveCall())) {
-            mIdPersonMap.clear();
-            feedback();
-        }
     }
 
     @SuppressWarnings("unused")

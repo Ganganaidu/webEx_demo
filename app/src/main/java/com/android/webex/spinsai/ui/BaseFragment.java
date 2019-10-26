@@ -78,7 +78,7 @@ public class BaseFragment extends Fragment {
     }
 
     /**
-     * Use this method to set Fragment's layout
+     * Use this method to set Fragment's menu_path
      * this method is not dynamic, should call after fragment created.
      *
      * @param layout
